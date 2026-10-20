@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tóxicos según su origen</title>
+<style>
+  :root {
+    --crema: #fffaf0;
+    --pastel: #fdf3c4;
+    --amarillo: #f3de7a;
+    --borde: #eadfae;
+    --texto: #3b3b3b;
+    --suave: #6b6b6b;
+    --ok: #e4efd2;
+    --mal: #f7dcd3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 48px;
+    background: var(--crema); color: var(--texto);
+    font: 17px/1.6 Georgia, "Times New Roman", serif;
+  }
+  main { max-width: 620px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 8px 0 4px; line-height: 1.25; }
+  .sub { color: var(--suave); margin: 0 0 24px; font-size: .95rem; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  button, select { font: inherit; color: inherit; }
+  button {
+    min-height: 44px; padding: 8px 16px; cursor: pointer;
+    background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+  }
+  button:hover { background: var(--pastel); }
+  button:focus-visible, select:focus-visible { outline: 2px solid #b8a23a; outline-offset: 2px; }
+  .tabs button { flex: 1; }
+  .tabs button[aria-selected="true"] { background: var(--amarillo); border-color: #d9c35c; }
+  .card {
+    background: #fff; border: 1px solid var(--borde);
+    border-radius: 12px; padding: 20px;
+  }
+  .card > p:first-child { margin-top: 0; }
+  .row {
+    padding: 12px; margin-bottom: 10px; border-radius: 8px;
+    background: var(--crema); border: 1px solid var(--borde);
+  }
+  .row b { display: block; margin-bottom: 6px; font-weight: normal; }
+  select {
+    width: 100%; min-height: 44px; padding: 8px;
+    background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+  }
+  .row.ok { background: var(--ok); }
+  .row.bad { background: var(--mal); }
+  .fb { display: block; margin-top: 6px; font-size: .9rem; color: var(--suave); }
+  .actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .primario { background: var(--amarillo); border-color: #d9c35c; }
+  .barra { height: 8px; background: var(--pastel); border-radius: 4px; overflow: hidden; margin: 8px 0 18px; }
+  .barra div { height: 100%; background: var(--amarillo); }
+  .meta { display: flex; justify-content: space-between; color: var(--suave); font-size: .9rem; }
+  .opciones { display: grid; gap: 8px; margin: 16px 0; }
+  .opciones button { text-align: left; }
+  .opciones button.ok { background: var(--ok); }
+  .opciones button.bad { background: var(--mal); }
+  .expl { padding: 12px; background: var(--pastel); border-radius: 8px; margin-bottom: 4px; }
+  .resultado { text-align: center; }
+  .resultado .num { font-size: 2.4rem; margin: 8px 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tóxicos según su origen</h1>
+  <p class="sub">Introducción a la Toxicología · Clasificación de la flashcard</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-m" aria-selected="true">Emparejamiento</button>
+    <button role="tab" id="tab-q" aria-selected="false">Mejor respuesta</button>
+  </div>
+
+  <section id="modo-m" class="card"></section>
+  <section id="modo-q" class="card" hidden></section>
+</main>
+
+<script>
+// ---------- DATOS (editar aquí) ----------
+const DATA = {
+  mineral:   { n: "Origen mineral",   items: ["Arsénico", "Plomo", "Mercurio", "Antimonio"] },
+  vegetal:   { n: "Origen vegetal",   items: ["Papaver somniferum", "Cannabis indicus", "Taxus baccata", "Helleborus spp.", "Conium maculatum", "Almendra amarga", "Crisantemo"] },
+  sintetico: { n: "Origen sintético", items: ["Cianuro", "Fármacos", "Drogas", "Toxinas biológicas"] },
+  animal:    { n: "Origen animal",    items: ["Veneno de serpientes", "Secreciones de ranas"] }
+};
+const KEYS = Object.keys(DATA);
+const PREFIJO = "Según la clasificación de esta flashcard, ";
+
+// ---------- UTILIDADES ----------
+const $ = id => document.getElementById(id);
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = (a, n = 1) => shuffle(a).slice(0, n);
+const minus = s => s.charAt(0).toLowerCase() + s.slice(1);
+
+// ---------- PESTAÑAS ----------
+function mostrar(modo) {
+  $("modo-m").hidden = modo !== "m";
+  $("modo-q").hidden = modo !== "q";
+  $("tab-m").setAttribute("aria-selected", modo === "m");
+  $("tab-q").setAttribute("aria-selected", modo === "q");
+}
+$("tab-m").onclick = () => mostrar("m");
+$("tab-q").onclick = () => mostrar("q");
+
+// ---------- 1. EMPAREJAMIENTO ----------
+let pares = [];
+
+function nuevoEmparejamiento() {
+  // 2 ejemplos al azar por categoría, mezclados
+  pares = shuffle(KEYS.flatMap(k => pick(DATA[k].items, 2).map(t => ({ t, k }))));
+  const opciones = KEYS.map(k => `<option value="${k}">${DATA[k].n}</option>`).join("");
+  $("modo-m").innerHTML =
+    `<p>Elige el origen de cada sustancia o ejemplo.</p>` +
+    pares.map((p, i) =>
+      `<div class="row" id="r${i}"><b>${p.t}</b>
+       <select id="s${i}" aria-label="Origen de ${p.t}"><option value="">Elegir origen…</option>${opciones}</select>
+       <span class="fb"></span></div>`).join("") +
+    `<div class="actions">
+       <button class="primario" id="comprobar">Comprobar</button>
+       <button id="repetir" hidden>Repetir con otros ejemplos</button>
+     </div>
+     <p id="nota-m" class="fb"></p>`;
+  $("comprobar").onclick = comprobar;
+  $("repetir").onclick = nuevoEmparejamiento;
+}
+
+function comprobar() {
+  let aciertos = 0;
+  pares.forEach((p, i) => {
+    const sel = $("s" + i), fila = $("r" + i), ok = sel.value === p.k;
+    if (ok) aciertos++;
+    fila.classList.add(ok ? "ok" : "bad");
+    fila.querySelector(".fb").textContent = ok ? "Correcto." : `Correcto: ${DATA[p.k].n}.`;
+    sel.disabled = true;
+  });
+  $("nota-m").textContent = `Aciertos: ${aciertos} de ${pares.length}.`;
+  $("comprobar").hidden = true;
+  $("repetir").hidden = false;
+}
+
+// ---------- 2. MEJOR RESPUESTA ----------
+let preguntas = [], idx = 0, puntos = 0, respondida = false;
+
+function crearPreguntas() {
+  const lista = [];
+  KEYS.forEach(k => {
+    // Tipo A: ¿de qué origen es esta sustancia?
+    const item = pick(DATA[k].items)[0];
+    lista.push({
+      texto: `${PREFIJO}¿qué origen tiene «${item}»?`,
+      opciones: KEYS.map(c => ({ t: DATA[c].n, ok: c === k })),
+      expl: `${item} se clasifica como ${minus(DATA[k].n)}.`
+    });
+    // Tipo B: ¿cuál de estas sustancias es de este origen?
+    const correcta = pick(DATA[k].items)[0];
+    const otras = KEYS.filter(c => c !== k).map(c => pick(DATA[c].items)[0]);
+    lista.push({
+      texto: `${PREFIJO}¿cuál de estas opciones es de ${minus(DATA[k].n)}?`,
+      opciones: [{ t: correcta, ok: true }, ...otras.map(t => ({ t, ok: false }))],
+      expl: `${correcta} se clasifica como ${minus(DATA[k].n)}.`
+    });
+  });
+  return shuffle(lista);
+}
+
+function iniciarQuiz() {
+  preguntas = crearPreguntas(); idx = 0; puntos = 0;
+  mostrarPregunta();
+}
+
+function mostrarPregunta() {
+  respondida = false;
+  const q = preguntas[idx], total = preguntas.length;
+  $("modo-q").innerHTML =
+    `<div class="meta"><span>Pregunta ${idx + 1} de ${total}</span><span>Puntos: ${puntos}</span></div>
+     <div class="barra"><div style="width:${(idx / total) * 100}%"></div></div>
+     <p>${q.texto}</p>
+     <div class="opciones">${shuffle(q.opciones).map((o, i) =>
+        `<button data-ok="${o.ok}">${o.t}</button>`).join("")}</div>
+     <div id="exp" hidden></div>
+     <div class="actions"><button class="primario" id="sig" hidden>${idx + 1 === total ? "Ver resultado" : "Continuar"}</button></div>`;
+  document.querySelectorAll(".opciones button").forEach(b => b.onclick = () => responder(b));
+  $("sig").onclick = () => { idx++; idx < total ? mostrarPregunta() : mostrarResultado(); };
+}
+
+function responder(btn) {
+  if (respondida) return;
+  respondida = true;
+  const acierto = btn.dataset.ok === "true";
+  if (acierto) puntos++;
+  document.querySelectorAll(".opciones button").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.ok === "true") b.classList.add("ok");
+  });
+  if (!acierto) btn.classList.add("bad");
+  $("exp").hidden = false;
+  $("exp").className = "expl";
+  $("exp").textContent = (acierto ? "Correcto. " : "Incorrecto. ") + preguntas[idx].expl;
+  $("sig").hidden = false;
+}
+
+function mostrarResultado() {
+  const total = preguntas.length;
+  $("modo-q").innerHTML =
+    `<div class="resultado">
+       <p>Resultado final</p>
+       <div class="num">${puntos} / ${total}</div>
+       <p>${puntos === total ? "Clasificación dominada." : puntos >= total / 2 ? "Buen avance. Repite para afianzar." : "Sigue practicando el emparejamiento y repite el quiz."}</p>
+       <div class="actions" style="justify-content:center"><button class="primario" id="reiniciar">Reiniciar quiz</button></div>
+     </div>`;
+  $("reiniciar").onclick = iniciarQuiz;
+}
+
+// ---------- INICIO ----------
+nuevoEmparejamiento();
+iniciarQuiz();
+</script>
+</body>
+</html>
